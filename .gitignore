@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-electron/
+release/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment variables (IMPORTANT - never commit these)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Local storage data (user data - DO NOT COMMIT)
+*.db
+*.sqlite
+
+# Package manager locks (optional, keep if you want reproducible builds)
+# package-lock.json
+
+# Electron builder cache
+.electron-builder-cache/
+
+# Temp files
+*.tmp
+*.temp
