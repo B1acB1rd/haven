@@ -126,10 +126,11 @@ function createWindow() {
         frame: false,
         titleBarStyle: 'hidden',
         backgroundColor: '#202123',
+        show: false, // Don't show until ready - faster perceived startup
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            sandbox: true, // SECURITY: Sandbox enabled for isolation
+            sandbox: false, // Disable sandbox for preload script compatibility in production
             preload: path.join(__dirname, 'preload.js'),
             webviewTag: true,
             webSecurity: true,
@@ -137,6 +138,11 @@ function createWindow() {
             allowRunningInsecureContent: false,
             experimentalFeatures: false,
         },
+    });
+
+    // Show window when ready - improves perceived startup time
+    mainWindow.once('ready-to-show', () => {
+        mainWindow?.show();
     });
 
     // Register the local-file protocol handler with path validation

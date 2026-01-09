@@ -274,7 +274,7 @@ export function registerIPCHandlers(mainWindow: any) {
             return null;
         }
         // Whitelist allowed settings keys
-        const allowedKeys = ['theme', 'sidebarCollapsed', 'currentSessionToken'];
+        const allowedKeys = ['theme', 'sidebarCollapsed', 'currentSessionToken', 'quickNotes'];
         if (!allowedKeys.includes(key)) {
             console.warn('Blocked attempt to set unauthorized setting:', key);
             return null;

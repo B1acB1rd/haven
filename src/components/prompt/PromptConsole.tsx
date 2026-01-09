@@ -35,7 +35,7 @@ const modes = [
 ]
 
 export default function PromptConsole({ isOpen, onClose }: PromptConsoleProps) {
-    const { isEnabled } = useGemini()
+    const { isEnabled: _isEnabled } = useGemini()
     const [prompt, setPrompt] = useState('')
     const [selectedTool, setSelectedTool] = useState(tools[0])
     const [selectedMode, setSelectedMode] = useState(modes[0])
