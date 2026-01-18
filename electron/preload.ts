@@ -65,6 +65,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
         openVideo: () => ipcRenderer.invoke('dialog:openVideo'),
         openDocument: () => ipcRenderer.invoke('dialog:openDocument'),
     },
+
+    // Ad Blocker
+    adBlocker: {
+        isEnabled: () => ipcRenderer.invoke('adBlocker:isEnabled'),
+        setEnabled: (enabled: boolean) => ipcRenderer.invoke('adBlocker:setEnabled', enabled),
+        getStats: () => ipcRenderer.invoke('adBlocker:getStats'),
+        resetStats: () => ipcRenderer.invoke('adBlocker:resetStats'),
+    },
 });
 
 // Type declarations for the exposed API
@@ -127,6 +135,19 @@ declare global {
             dialog: {
                 openVideo: () => Promise<{ path: string; name: string } | null>;
                 openDocument: () => Promise<{ path: string; name: string } | null>;
+            };
+            adBlocker: {
+                isEnabled: () => Promise<boolean>;
+                setEnabled: (enabled: boolean) => Promise<void>;
+                getStats: () => Promise<{
+                    totalBlocked: number;
+                    browserStats?: {
+                        blocked: number;
+                        allowed: number;
+                        lastBlocked: string[];
+                    };
+                }>;
+                resetStats: () => Promise<void>;
             };
         };
     }

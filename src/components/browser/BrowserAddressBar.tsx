@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useBrowser } from '../../context/BrowserContext'
 import { useState, useEffect } from 'react'
+import ShieldButton from './ShieldButton'
 
 export default function BrowserAddressBar() {
     const {
@@ -163,6 +164,9 @@ export default function BrowserAddressBar() {
                     </button>
                 </div>
             </form>
+
+            {/* Shield Button */}
+            <ShieldButton />
 
             {/* Menu Button */}
             <button

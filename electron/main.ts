@@ -4,6 +4,7 @@ import { registerIPCHandlers } from './ipc-handlers';
 import * as fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { StorageService } from './services/storage';
+import { adBlocker } from './services/adBlocker';
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -171,6 +172,10 @@ function setupAllSessions() {
         return true;
     });
 
+    // Register ad blocker for browser partitions
+    adBlocker.registerSession('persist:browser');
+    adBlocker.registerSession('persist:haven-browser');
+
     console.log('All sessions initialized with permissions');
 }
 
@@ -307,6 +312,15 @@ ipcMain.handle('window:maximize', () => {
 });
 ipcMain.handle('window:close', () => mainWindow?.close());
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
+
+// Ad Blocker IPC Handlers
+ipcMain.handle('adBlocker:isEnabled', () => adBlocker.isEnabled());
+ipcMain.handle('adBlocker:setEnabled', (_, enabled: boolean) => adBlocker.setEnabled(enabled));
+ipcMain.handle('adBlocker:getStats', () => ({
+    totalBlocked: adBlocker.getTotalBlocked(),
+    browserStats: adBlocker.getStats('persist:browser'),
+}));
+ipcMain.handle('adBlocker:resetStats', () => adBlocker.resetStats());
 
 app.whenReady().then(() => {
     // Initialize all sessions BEFORE creating window

@@ -104,6 +104,19 @@ interface ElectronAPI {
         get: (key: string) => Promise<unknown>
         set: (key: string, value: unknown) => Promise<void>
     }
+    adBlocker: {
+        isEnabled: () => Promise<boolean>
+        setEnabled: (enabled: boolean) => Promise<void>
+        getStats: () => Promise<{
+            totalBlocked: number
+            browserStats?: {
+                blocked: number
+                allowed: number
+                lastBlocked: string[]
+            }
+        }>
+        resetStats: () => Promise<void>
+    }
 }
 
 declare global {
