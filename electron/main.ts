@@ -8,6 +8,10 @@ import { StorageService } from './services/storage';
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+// Disable WebAuthn/passkey to prevent Windows Security dialogs from appearing
+// This must be called before app is ready
+app.commandLine.appendSwitch('disable-features', 'WebAuthentication,WebAuthenticationConditionalUI');
+
 // Assets download directory
 const getAssetsDir = () => {
     const assetsDir = path.join(app.getPath('userData'), 'ai-downloads');
@@ -187,14 +191,52 @@ function createWindow() {
     // Initialize IPC Handlers
     registerIPCHandlers(mainWindow);
 
-    // Setup download handlers for all platform sessions
+    // Setup download handlers and permission handlers for all platform sessions
     allPartitions.forEach(partition => {
         const ses = session.fromPartition(partition);
         setupDownloadHandler(ses, partition);
+
+        // Block WebAuthn/passkey and HID requests to prevent Windows Security dialogs
+        ses.setPermissionRequestHandler((webContents, permission, callback) => {
+            const blockedPermissions = ['hid', 'usb'];
+            if (blockedPermissions.includes(permission)) {
+                console.log(`Blocked ${permission} permission request in ${partition}`);
+                callback(false);
+            } else {
+                callback(true);
+            }
+        });
+
+        // Handle permission check for WebAuthn (publickey-credentials)
+        ses.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+            // Block WebAuthn/passkey credential checks
+            if (permission === 'hid') {
+                return false;
+            }
+            return true;
+        });
     });
 
     // Also setup download handler for default session (catches ALL other downloads)
     setupDownloadHandler(session.defaultSession, 'persist:app');
+
+    // Block WebAuthn/passkey for default session as well
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const blockedPermissions = ['hid', 'usb'];
+        if (blockedPermissions.includes(permission)) {
+            console.log(`Blocked ${permission} permission request in default session`);
+            callback(false);
+        } else {
+            callback(true);
+        }
+    });
+
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+        if (permission === 'hid') {
+            return false;
+        }
+        return true;
+    });
 
     // Note: We don't override CSP for external webview sessions because:
     // 1. External sites (Google, Twitter, etc.) have their own CSP policies

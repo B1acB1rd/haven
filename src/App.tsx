@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Sidebar from './components/layout/Sidebar'
 import TopBar from './components/layout/TopBar'
+import ActiveDock from './components/layout/ActiveDock'
+import FloatingTabBar from './components/layout/FloatingTabBar'
 import Dashboard from './pages/Dashboard'
 
 import AITools from './pages/AITools'
@@ -18,6 +20,7 @@ import QuickNotes from './components/QuickNotes'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TabsProvider } from './context/TabsContext'
 import { GeminiProvider } from './context/GeminiContext'
+import { NavigationProvider, useNavigation } from './context/NavigationContext'
 import { ToastProvider } from './components/Toast'
 import { useDownloadNotifications } from './hooks/useDownloadNotifications'
 
@@ -29,6 +32,9 @@ function AppContent() {
 
     // Listen for AI downloads and show toast
     useDownloadNotifications()
+
+    // Get navigation functions
+    const { navigateToIndex, goBack, goForward } = useNavigation()
 
     // Global keyboard shortcuts
     useEffect(() => {
@@ -48,11 +54,26 @@ function AppContent() {
                 e.preventDefault()
                 setNotesOpen(prev => !prev)
             }
+            // ⌘1-9 or Ctrl+1-9 - Quick switch to tab
+            if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
+                e.preventDefault()
+                navigateToIndex(parseInt(e.key))
+            }
+            // ⌘[ or Ctrl+[ - Go back
+            if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+                e.preventDefault()
+                goBack()
+            }
+            // ⌘] or Ctrl+] - Go forward
+            if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+                e.preventDefault()
+                goForward()
+            }
         }
 
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [])
+    }, [navigateToIndex, goBack, goForward])
 
     return (
         <ErrorBoundary>
@@ -64,13 +85,20 @@ function AppContent() {
                             onToggleAssistant={() => setAssistantOpen(!assistantOpen)}
                         />
 
+                        {/* Floating Tab Bar */}
+                        <FloatingTabBar />
+
                         {/* Main Layout */}
                         <div className="flex flex-1 overflow-hidden">
-                            {/* Sidebar */}
-                            <Sidebar
-                                collapsed={sidebarCollapsed}
-                                onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-                            />
+                            {/* Active Dock replaces Sidebar when collapsed */}
+                            {sidebarCollapsed ? (
+                                <ActiveDock onExpand={() => setSidebarCollapsed(false)} />
+                            ) : (
+                                <Sidebar
+                                    collapsed={sidebarCollapsed}
+                                    onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+                                />
+                            )}
 
                             {/* Main Content Area */}
                             <main className="flex-1 overflow-auto bg-dark-900 page-transition">
@@ -104,11 +132,13 @@ function AppContent() {
     )
 }
 
-// App wrapper that provides ToastProvider (needed for hooks)
+// App wrapper that provides ToastProvider and NavigationProvider (needed for hooks)
 function App() {
     return (
         <ToastProvider>
-            <AppContent />
+            <NavigationProvider>
+                <AppContent />
+            </NavigationProvider>
         </ToastProvider>
     )
 }

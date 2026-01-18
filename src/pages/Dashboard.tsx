@@ -1,53 +1,27 @@
 import { useState, useEffect } from 'react'
 import {
-    FolderKanban,
     Bot,
     Image,
     TrendingUp,
-    Clock,
-    Plus,
-    ArrowRight,
-    Loader2,
+    Globe,
+    Music,
     File
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-interface Project {
-    id: string
-    name: string
-    type: string
-    updatedAt: string
-}
-
 interface Stats {
-    totalProjects: number
     totalAssets: number
-    aiConfigured: boolean
 }
 
 const quickActions = [
     { icon: Bot, label: 'AI Tools', path: '/ai-tools', color: 'from-blue-500 to-cyan-500' },
     { icon: Image, label: 'Assets', path: '/assets', color: 'from-purple-500 to-pink-500' },
-    { icon: FolderKanban, label: 'Projects', path: '/projects', color: 'from-green-500 to-emerald-500' },
+    { icon: Globe, label: 'Browser', path: '/browser', color: 'from-green-500 to-emerald-500' },
+    { icon: Music, label: 'Music', path: '/music', color: 'from-orange-500 to-red-500' },
 ]
 
-function formatDate(dateStr: string): string {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffHours < 1) return 'Just now'
-    if (diffHours < 24) return `${diffHours} hours ago`
-    if (diffDays === 1) return 'Yesterday'
-    if (diffDays < 7) return `${diffDays} days ago`
-    return date.toLocaleDateString()
-}
-
 export default function Dashboard() {
-    const [recentProjects, setRecentProjects] = useState<Project[]>([])
-    const [stats, setStats] = useState<Stats>({ totalProjects: 0, totalAssets: 0, aiConfigured: false })
+    const [stats, setStats] = useState<Stats>({ totalAssets: 0 })
     const [loading, setLoading] = useState(true)
     const [notes, setNotes] = useState('')
     const [notesSaved, setNotesSaved] = useState(false)
@@ -85,24 +59,16 @@ export default function Dashboard() {
             setLoading(true)
 
             // Check if running in Electron (electronAPI available)
-            if (!window.electronAPI?.projects) {
-                // Browser dev mode - use mock data
-                setRecentProjects([])
-                setStats({ totalProjects: 0, totalAssets: 0, aiConfigured: false })
+            if (!window.electronAPI?.assets) {
+                setStats({ totalAssets: 0 })
                 return
             }
-
-            // Load projects (get first 3)
-            const projects = await window.electronAPI.projects.getAll()
-            setRecentProjects(projects.slice(0, 3) as unknown as Project[])
 
             // Load assets count
             const assets = await window.electronAPI.assets.getAll()
 
             setStats({
-                totalProjects: projects.length,
                 totalAssets: assets.length,
-                aiConfigured: false // No longer tracking this
             })
         } catch (error) {
             console.error('Failed to load dashboard data:', error)
@@ -120,7 +86,7 @@ export default function Dashboard() {
             </div>
 
             {/* Browser Dev Mode Banner */}
-            {!window.electronAPI?.projects && (
+            {!window.electronAPI?.assets && (
                 <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
                     <p className="text-sm text-amber-400">
                         <strong>Development Mode:</strong> Run <code className="bg-dark-800 px-2 py-0.5 rounded">npm run electron:dev</code> for full functionality with AI tools and webviews.
@@ -134,7 +100,7 @@ export default function Dashboard() {
                     <TrendingUp className="w-5 h-5 text-accent-primary" />
                     Quick Actions
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {quickActions.map((action) => (
                         <Link
                             key={action.label}
@@ -150,8 +116,6 @@ export default function Dashboard() {
                             </div>
                             <h3 className="text-lg font-semibold text-white mb-1">{action.label}</h3>
                             <p className="text-sm text-dark-400">Click to get started</p>
-                            <ArrowRight className="absolute bottom-6 right-6 w-5 h-5 text-dark-500 
-                                     group-hover:text-white group-hover:translate-x-1 transition-all" />
                         </Link>
                     ))}
                 </div>
@@ -177,90 +141,14 @@ export default function Dashboard() {
                 </div>
             </section>
 
-            {/* Recent Projects */}
-            <section className="mb-10">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <Clock className="w-5 h-5 text-accent-secondary" />
-                        Recent Projects
-                    </h2>
-                    <Link
-                        to="/projects"
-                        className="text-sm text-accent-primary hover:text-accent-primary/80 transition-colors"
-                    >
-                        View all →
-                    </Link>
-                </div>
-
-                {loading ? (
-                    <div className="flex items-center justify-center py-10">
-                        <Loader2 className="w-6 h-6 text-accent-primary animate-spin" />
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {recentProjects.length > 0 ? recentProjects.map((project) => (
-                            <Link
-                                key={project.id}
-                                to={`/projects/${project.id}`}
-                                className="group p-5 rounded-xl bg-dark-800 border border-dark-700 
-                         hover:border-accent-primary/50 transition-all duration-200"
-                            >
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="w-10 h-10 rounded-lg bg-dark-700 flex items-center justify-center">
-                                        <FolderKanban className="w-5 h-5 text-dark-400" />
-                                    </div>
-                                    <span className="text-xs text-dark-500 bg-dark-700 px-2 py-1 rounded-full">
-                                        {project.type}
-                                    </span>
-                                </div>
-                                <h3 className="font-medium text-white mb-1 group-hover:text-accent-primary transition-colors">
-                                    {project.name}
-                                </h3>
-                                <p className="text-sm text-dark-500">{formatDate(project.updatedAt)}</p>
-                            </Link>
-                        )) : (
-                            <div className="col-span-3 p-8 rounded-xl bg-dark-800/50 border border-dark-700 text-center">
-                                <FolderKanban className="w-10 h-10 text-dark-600 mx-auto mb-3" />
-                                <p className="text-dark-400 mb-4">No projects yet</p>
-                                <Link
-                                    to="/projects"
-                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-primary text-white font-medium hover:bg-accent-primary/90"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Create First Project
-                                </Link>
-                            </div>
-                        )}
-
-                        {/* New Project Card */}
-                        {recentProjects.length > 0 && recentProjects.length < 3 && (
-                            <Link
-                                to="/projects"
-                                className="group p-5 rounded-xl border-2 border-dashed border-dark-700 
-                               hover:border-accent-primary/50 transition-all duration-200
-                               flex flex-col items-center justify-center text-center min-h-[140px]"
-                            >
-                                <div className="w-10 h-10 rounded-full bg-dark-800 flex items-center justify-center mb-3
-                               group-hover:bg-accent-primary/20 transition-colors">
-                                    <Plus className="w-5 h-5 text-dark-400 group-hover:text-accent-primary" />
-                                </div>
-                                <span className="text-sm font-medium text-dark-400 group-hover:text-white">
-                                    Create New Project
-                                </span>
-                            </Link>
-                        )}
-                    </div>
-                )}
-            </section>
-
             {/* Stats Overview */}
             <section>
                 <h2 className="text-lg font-semibold text-white mb-4">Overview</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {[
-                        { label: 'Projects', value: stats.totalProjects.toString(), icon: FolderKanban },
-                        { label: 'Assets', value: stats.totalAssets.toString(), icon: File },
+                        { label: 'Assets', value: loading ? '...' : stats.totalAssets.toString(), icon: Image },
                         { label: 'Storage', value: 'Local', icon: TrendingUp },
+                        { label: 'Status', value: 'Ready', icon: Globe },
                     ].map((stat) => (
                         <div
                             key={stat.label}
@@ -278,3 +166,4 @@ export default function Dashboard() {
         </div>
     )
 }
+

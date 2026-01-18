@@ -16,6 +16,7 @@ import {
     Loader2
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useNavigation, navItems } from '../context/NavigationContext'
 
 interface CommandPaletteProps {
     isOpen: boolean
@@ -42,86 +43,143 @@ const typeIcons: Record<string, React.ReactNode> = {
 
 export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     const navigate = useNavigate()
+    const { recentPages, getPageLabel } = useNavigation()
     const [query, setQuery] = useState('')
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [results, setResults] = useState<SearchResult[]>([])
     const [loading, setLoading] = useState(false)
 
+    // Fuzzy search scoring - higher = better match
+    const fuzzyScore = (text: string, pattern: string): number => {
+        const textLower = text.toLowerCase()
+        const patternLower = pattern.toLowerCase()
+
+        // Exact match
+        if (textLower === patternLower) return 100
+        // Starts with
+        if (textLower.startsWith(patternLower)) return 80
+        // Contains as substring
+        if (textLower.includes(patternLower)) return 60
+
+        // Fuzzy character match (e.g., "sp" matches "Spotify")
+        let patternIdx = 0
+        let consecutiveBonus = 0
+        let score = 0
+
+        for (let i = 0; i < textLower.length && patternIdx < patternLower.length; i++) {
+            if (textLower[i] === patternLower[patternIdx]) {
+                score += 10 + consecutiveBonus
+                consecutiveBonus += 5
+                patternIdx++
+            } else {
+                consecutiveBonus = 0
+            }
+        }
+
+        return patternIdx === patternLower.length ? score : 0
+    }
+
     // Static navigation commands
     const navigationCommands: SearchResult[] = [
-        { id: 'home', name: 'Go to Dashboard', description: 'View your workspace', icon: <Home className="w-4 h-4" />, action: () => { navigate('/'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'projects', name: 'Projects', description: 'Manage your projects', icon: <FolderKanban className="w-4 h-4" />, action: () => { navigate('/projects'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'ai-tools', name: 'AI Tools', description: 'Access AI platforms', icon: <Bot className="w-4 h-4" />, action: () => { navigate('/ai-tools'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'music', name: 'Music Hub', description: 'Stream music services', icon: <Music className="w-4 h-4" />, action: () => { navigate('/music'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'videos', name: 'Video Player', description: 'Watch and play videos', icon: <Video className="w-4 h-4" />, action: () => { navigate('/videos'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'documents', name: 'Documents', description: 'View documents', icon: <FileText className="w-4 h-4" />, action: () => { navigate('/documents'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'social', name: 'Social Hub', description: 'Access social platforms', icon: <Users className="w-4 h-4" />, action: () => { navigate('/social'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'assets', name: 'Assets', description: 'Browse your files', icon: <Image className="w-4 h-4" />, action: () => { navigate('/assets'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'settings', name: 'Settings', description: 'Configure preferences', icon: <Settings className="w-4 h-4" />, action: () => { navigate('/settings'); onClose() }, category: 'Navigation', type: 'navigation' },
-        { id: 'ai-assistant', name: 'Open AI Assistant', description: 'Chat with AI tools', icon: <Sparkles className="w-4 h-4" />, action: () => { onClose() }, category: 'Actions', type: 'navigation' },
+        { id: 'home', name: 'Dashboard', description: 'View your workspace • ⌘1', icon: <Home className="w-4 h-4" />, action: () => { navigate('/'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'ai-tools', name: 'AI Tools', description: 'Access AI platforms • ⌘2', icon: <Bot className="w-4 h-4" />, action: () => { navigate('/ai-tools'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'browser', name: 'Browser', description: 'Web browsing • ⌘3', icon: <FolderKanban className="w-4 h-4" />, action: () => { navigate('/browser'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'music', name: 'Music Hub', description: 'Stream music services • ⌘4', icon: <Music className="w-4 h-4" />, action: () => { navigate('/music'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'videos', name: 'Video Player', description: 'Watch and play videos • ⌘5', icon: <Video className="w-4 h-4" />, action: () => { navigate('/videos'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'documents', name: 'Documents', description: 'View documents • ⌘6', icon: <FileText className="w-4 h-4" />, action: () => { navigate('/documents'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'social', name: 'Social Hub', description: 'Access social platforms • ⌘7', icon: <Users className="w-4 h-4" />, action: () => { navigate('/social'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'assets', name: 'Assets', description: 'Browse your files • ⌘8', icon: <Image className="w-4 h-4" />, action: () => { navigate('/assets'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'settings', name: 'Settings', description: 'Configure preferences • ⌘9', icon: <Settings className="w-4 h-4" />, action: () => { navigate('/settings'); onClose() }, category: 'Navigation', type: 'navigation' },
+        { id: 'ai-assistant', name: 'Open AI Assistant', description: 'Chat with AI • ⌘\\', icon: <Sparkles className="w-4 h-4" />, action: () => { onClose() }, category: 'Actions', type: 'navigation' },
     ]
+
+    // Build recent results
+    const buildRecentResults = (): SearchResult[] => {
+        return recentPages.slice(0, 5).map(path => {
+            const navItem = navItems.find(n => n.path === path)
+            const matchingCmd = navigationCommands.find(c => c.id === navItem?.path.replace('/', '') || c.id === 'home' && path === '/')
+            return {
+                id: `recent-${path}`,
+                name: getPageLabel(path),
+                description: 'Recently visited',
+                icon: matchingCmd?.icon || <Home className="w-4 h-4" />,
+                action: () => { navigate(path); onClose() },
+                category: 'Recent',
+                type: 'navigation' as const
+            }
+        })
+    }
 
     // Search projects and assets
     const searchContent = useCallback(async (searchQuery: string) => {
-        if (!searchQuery.trim() || !window.electronAPI) {
-            setResults(navigationCommands.filter(cmd =>
-                cmd.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                cmd.description.toLowerCase().includes(searchQuery.toLowerCase())
-            ))
+        if (!searchQuery.trim()) {
+            // Show recent + all navigation when no query
+            const recentResults = buildRecentResults()
+            setResults([...recentResults, ...navigationCommands])
             return
         }
 
         setLoading(true)
         try {
-            const [projects, assets] = await Promise.all([
-                window.electronAPI.projects?.getAll() || [],
-                window.electronAPI.assets?.getAll() || []
-            ])
-
-            const searchLower = searchQuery.toLowerCase()
-
-            // Filter and map projects
-            const projectResults: SearchResult[] = (projects as any[])
-                .filter(p => p.name.toLowerCase().includes(searchLower))
-                .slice(0, 5)
-                .map(p => ({
-                    id: `project-${p.id}`,
-                    name: p.name,
-                    description: p.type || 'Project',
-                    icon: <FolderKanban className="w-4 h-4" />,
-                    action: () => { navigate(`/projects/${p.id}`); onClose() },
-                    category: 'Projects',
-                    type: 'project' as const
+            // Filter and score navigation commands using fuzzy search
+            const scoredNavCommands = navigationCommands
+                .map(cmd => ({
+                    ...cmd,
+                    score: Math.max(
+                        fuzzyScore(cmd.name, searchQuery),
+                        fuzzyScore(cmd.description, searchQuery)
+                    )
                 }))
+                .filter(cmd => cmd.score > 0)
+                .sort((a, b) => b.score - a.score)
 
-            // Filter and map assets
-            const assetResults: SearchResult[] = (assets as any[])
-                .filter(a => a.name.toLowerCase().includes(searchLower))
-                .slice(0, 5)
-                .map(a => ({
-                    id: `asset-${a.id}`,
-                    name: a.name,
-                    description: `${a.type} • ${a.sourceTool || 'Unknown source'}`,
-                    icon: typeIcons[a.type] || <File className="w-4 h-4" />,
-                    action: () => { navigate('/assets'); onClose() },
-                    category: 'Assets',
-                    type: 'asset' as const
-                }))
+            // Also try to search projects/assets if electron API available
+            let projectResults: SearchResult[] = []
+            let assetResults: SearchResult[] = []
 
-            // Filter navigation commands
-            const navResults = navigationCommands.filter(cmd =>
-                cmd.name.toLowerCase().includes(searchLower) ||
-                cmd.description.toLowerCase().includes(searchLower)
-            )
+            if (window.electronAPI) {
+                const [projects, assets] = await Promise.all([
+                    window.electronAPI.projects?.getAll() || [],
+                    window.electronAPI.assets?.getAll() || []
+                ])
 
-            setResults([...navResults, ...projectResults, ...assetResults])
+                const searchLower = searchQuery.toLowerCase()
+
+                projectResults = (projects as any[])
+                    .filter(p => p.name.toLowerCase().includes(searchLower))
+                    .slice(0, 5)
+                    .map(p => ({
+                        id: `project-${p.id}`,
+                        name: p.name,
+                        description: p.type || 'Project',
+                        icon: <FolderKanban className="w-4 h-4" />,
+                        action: () => { navigate(`/projects/${p.id}`); onClose() },
+                        category: 'Projects',
+                        type: 'project' as const
+                    }))
+
+                assetResults = (assets as any[])
+                    .filter(a => a.name.toLowerCase().includes(searchLower))
+                    .slice(0, 5)
+                    .map(a => ({
+                        id: `asset-${a.id}`,
+                        name: a.name,
+                        description: `${a.type} • ${a.sourceTool || 'Unknown source'}`,
+                        icon: typeIcons[a.type] || <File className="w-4 h-4" />,
+                        action: () => { navigate('/assets'); onClose() },
+                        category: 'Assets',
+                        type: 'asset' as const
+                    }))
+            }
+
+            setResults([...scoredNavCommands, ...projectResults, ...assetResults])
         } catch (error) {
             console.error('Search error:', error)
             setResults(navigationCommands)
         } finally {
             setLoading(false)
         }
-    }, [navigate, onClose])
+    }, [navigate, onClose, recentPages])
 
     // Debounced search
     useEffect(() => {
