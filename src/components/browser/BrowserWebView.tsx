@@ -93,7 +93,7 @@ export default function BrowserWebView({ tab, isActive }: BrowserWebViewProps) {
             <webview
                 ref={webviewRef}
                 src={tab.url}
-                partition="persist:haven-browser"
+                partition="persist:browser"
                 className="w-full h-full"
                 // @ts-ignore - webview attributes
                 allowpopups="true"

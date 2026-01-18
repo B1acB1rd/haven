@@ -35,8 +35,10 @@ protocol.registerSchemesAsPrivileged([
     }
 ]);
 
-// All partitions to monitor for downloads (AI + Social + Music + everything)
+// All partitions to monitor for downloads (AI + Social + Music + Browser + everything)
 const allPartitions = [
+    // Haven Browser
+    'persist:haven-browser', 'persist:browser',
     // AI platforms
     'persist:gemini', 'persist:chatgpt', 'persist:claude', 'persist:perplexity',
     'persist:dalle', 'persist:midjourney', 'persist:leonardo',
@@ -120,6 +122,58 @@ function setupDownloadHandler(ses: Electron.Session, partitionName: string) {
     });
 }
 
+// Setup all sessions before window creation
+function setupAllSessions() {
+    // Setup download handlers and permission handlers for all platform sessions
+    allPartitions.forEach(partition => {
+        const ses = session.fromPartition(partition);
+        setupDownloadHandler(ses, partition);
+
+        // Block WebAuthn/passkey and HID requests to prevent Windows Security dialogs
+        ses.setPermissionRequestHandler((webContents, permission, callback) => {
+            const blockedPermissions = ['hid', 'usb'];
+            if (blockedPermissions.includes(permission)) {
+                console.log(`Blocked ${permission} permission request in ${partition}`);
+                callback(false);
+            } else {
+                callback(true);
+            }
+        });
+
+        // Handle permission check for WebAuthn (publickey-credentials)
+        ses.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+            // Block WebAuthn/passkey credential checks
+            if (permission === 'hid') {
+                return false;
+            }
+            return true;
+        });
+    });
+
+    // Also setup download handler for default session (catches ALL other downloads)
+    setupDownloadHandler(session.defaultSession, 'persist:app');
+
+    // Block WebAuthn/passkey for default session as well
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const blockedPermissions = ['hid', 'usb'];
+        if (blockedPermissions.includes(permission)) {
+            console.log(`Blocked ${permission} permission request in default session`);
+            callback(false);
+        } else {
+            callback(true);
+        }
+    });
+
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+        if (permission === 'hid') {
+            return false;
+        }
+        return true;
+    });
+
+    console.log('All sessions initialized with permissions');
+}
+
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1400,
@@ -191,52 +245,7 @@ function createWindow() {
     // Initialize IPC Handlers
     registerIPCHandlers(mainWindow);
 
-    // Setup download handlers and permission handlers for all platform sessions
-    allPartitions.forEach(partition => {
-        const ses = session.fromPartition(partition);
-        setupDownloadHandler(ses, partition);
-
-        // Block WebAuthn/passkey and HID requests to prevent Windows Security dialogs
-        ses.setPermissionRequestHandler((webContents, permission, callback) => {
-            const blockedPermissions = ['hid', 'usb'];
-            if (blockedPermissions.includes(permission)) {
-                console.log(`Blocked ${permission} permission request in ${partition}`);
-                callback(false);
-            } else {
-                callback(true);
-            }
-        });
-
-        // Handle permission check for WebAuthn (publickey-credentials)
-        ses.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
-            // Block WebAuthn/passkey credential checks
-            if (permission === 'hid') {
-                return false;
-            }
-            return true;
-        });
-    });
-
-    // Also setup download handler for default session (catches ALL other downloads)
-    setupDownloadHandler(session.defaultSession, 'persist:app');
-
-    // Block WebAuthn/passkey for default session as well
-    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-        const blockedPermissions = ['hid', 'usb'];
-        if (blockedPermissions.includes(permission)) {
-            console.log(`Blocked ${permission} permission request in default session`);
-            callback(false);
-        } else {
-            callback(true);
-        }
-    });
-
-    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
-        if (permission === 'hid') {
-            return false;
-        }
-        return true;
-    });
+    // Note: Session setup is now done in setupAllSessions() before window creation
 
     // Note: We don't override CSP for external webview sessions because:
     // 1. External sites (Google, Twitter, etc.) have their own CSP policies
@@ -300,6 +309,8 @@ ipcMain.handle('window:close', () => mainWindow?.close());
 ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized());
 
 app.whenReady().then(() => {
+    // Initialize all sessions BEFORE creating window
+    setupAllSessions();
     createWindow();
 
     app.on('activate', () => {
