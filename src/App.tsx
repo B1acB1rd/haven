@@ -21,8 +21,18 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { TabsProvider } from './context/TabsContext'
 import { GeminiProvider } from './context/GeminiContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
+import { BrowserProvider } from './context/BrowserContext'
 import { ToastProvider } from './components/Toast'
 import { useDownloadNotifications } from './hooks/useDownloadNotifications'
+
+// Browser page wrapped with its context
+function BrowserWithProvider() {
+    return (
+        <BrowserProvider>
+            <Browser />
+        </BrowserProvider>
+    )
+}
 
 function AppContent() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -106,7 +116,7 @@ function AppContent() {
                                     <Route path="/" element={<Dashboard />} />
 
                                     <Route path="/ai-tools" element={<AITools />} />
-                                    <Route path="/browser" element={<Browser />} />
+                                    <Route path="/browser" element={<BrowserWithProvider />} />
                                     <Route path="/music" element={<MusicHub />} />
                                     <Route path="/videos" element={<VideoPlayer />} />
                                     <Route path="/documents" element={<Documents />} />
