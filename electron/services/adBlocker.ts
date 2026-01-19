@@ -202,7 +202,7 @@ class AdBlockerService {
                         }
                     }
 
-                    console.log(`[AdBlocker] Blocked: ${details.url.substring(0, 80)}...`);
+                    // Silently block - no console spam
                     callback({ cancel: true });
                 } else {
                     const stats = this.stats.get(partitionName);
