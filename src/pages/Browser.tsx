@@ -1,11 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { Bot } from 'lucide-react'
 import { useBrowser } from '../context/BrowserContext'
 import BrowserTabStrip from '../components/browser/BrowserTabStrip'
 import BrowserAddressBar from '../components/browser/BrowserAddressBar'
 import BrowserWebView from '../components/browser/BrowserWebView'
+import BrowserAISidebar from '../components/browser/BrowserAISidebar'
 
 export default function Browser() {
     const { tabs, activeTabId, createTab, closeTab, navigateTo, bookmarks } = useBrowser()
+    const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
 
     // Keyboard shortcuts
     useEffect(() => {
@@ -25,6 +28,11 @@ export default function Browser() {
                 e.preventDefault()
                 document.getElementById('browser-url-input')?.focus()
             }
+            // Ctrl+Shift+A - Toggle AI sidebar
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+                e.preventDefault()
+                setAiSidebarOpen(prev => !prev)
+            }
             // F5 - Refresh
             if (e.key === 'F5') {
                 e.preventDefault()
@@ -39,8 +47,23 @@ export default function Browser() {
 
     return (
         <div className="h-full flex flex-col bg-dark-900">
-            {/* Tab Strip */}
-            <BrowserTabStrip />
+            {/* Tab Strip with AI button */}
+            <div className="flex items-center bg-dark-950 border-b border-dark-700">
+                <div className="flex-1">
+                    <BrowserTabStrip />
+                </div>
+                {/* AI Toggle Button */}
+                <button
+                    onClick={() => setAiSidebarOpen(!aiSidebarOpen)}
+                    className={`p-2 mx-2 rounded-lg transition-colors ${aiSidebarOpen
+                            ? 'bg-accent-primary text-white'
+                            : 'text-dark-400 hover:text-white hover:bg-dark-700'
+                        }`}
+                    title="Toggle AI Assistant (Ctrl+Shift+A)"
+                >
+                    <Bot className="w-4 h-4" />
+                </button>
+            </div>
 
             {/* Address Bar */}
             <BrowserAddressBar />
@@ -66,25 +89,34 @@ export default function Browser() {
                 ))}
             </div>
 
-            {/* WebView Container */}
-            <div className="flex-1 relative bg-dark-950">
-                {tabs.map((tab) => (
-                    <BrowserWebView
-                        key={tab.id}
-                        tab={tab}
-                        isActive={tab.id === activeTabId}
-                    />
-                ))}
+            {/* Main Content Area - WebView + AI Sidebar */}
+            <div className="flex-1 flex overflow-hidden">
+                {/* WebView Container */}
+                <div className="flex-1 relative bg-dark-950">
+                    {tabs.map((tab) => (
+                        <BrowserWebView
+                            key={tab.id}
+                            tab={tab}
+                            isActive={tab.id === activeTabId}
+                        />
+                    ))}
 
-                {/* Empty state */}
-                {tabs.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                            <h2 className="text-2xl font-bold text-white mb-2">Haven Browser</h2>
-                            <p className="text-dark-400">Press Ctrl+T to open a new tab</p>
+                    {/* Empty state */}
+                    {tabs.length === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-white mb-2">Haven Browser</h2>
+                                <p className="text-dark-400">Press Ctrl+T to open a new tab</p>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
+
+                {/* AI Sidebar */}
+                <BrowserAISidebar
+                    isOpen={aiSidebarOpen}
+                    onClose={() => setAiSidebarOpen(false)}
+                />
             </div>
 
             {/* CSS for loading animation */}
@@ -98,3 +130,4 @@ export default function Browser() {
         </div>
     )
 }
+
