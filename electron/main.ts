@@ -13,6 +13,20 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // This must be called before app is ready
 app.commandLine.appendSwitch('disable-features', 'WebAuthentication,WebAuthenticationConditionalUI');
 
+// Suppress noisy unhandled rejections from webview navigation (GUEST_VIEW_MANAGER_CALL errors)
+process.on('unhandledRejection', (reason: any) => {
+    // Suppress common webview navigation errors
+    if (reason?.code === 'ERR_ABORTED' ||
+        reason?.code === 'ERR_NAME_NOT_RESOLVED' ||
+        reason?.code === 'ERR_QUIC_PROTOCOL_ERROR' ||
+        reason?.code === 'ERR_NETWORK_ACCESS_DENIED' ||
+        reason?.code === '' ||  // Empty code from navigation failures
+        reason?.message?.includes('GUEST_VIEW_MANAGER_CALL')) {
+        return; // Silently ignore
+    }
+    console.error('Unhandled rejection:', reason);
+});
+
 // Assets download directory
 const getAssetsDir = () => {
     const assetsDir = path.join(app.getPath('userData'), 'ai-downloads');
@@ -261,12 +275,19 @@ function createWindow() {
     app.on('web-contents-created', (_, contents) => {
         if (contents.getType() === 'webview') {
             contents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-                // ERR_ABORTED (-3) is just navigation being cancelled (user clicked another link)
-                // This is normal behavior and not an error
-                if (errorCode === -3) {
+                // Suppress common, expected errors:
+                // -3: ERR_ABORTED - Navigation cancelled (user clicked another link, redirect)
+                // -105: ERR_NAME_NOT_RESOLVED - DNS lookup failed (invalid domain)
+                // -106: ERR_INTERNET_DISCONNECTED - No internet
+                // -118: ERR_CONNECTION_TIMED_OUT - Connection timeout
+                // -356: ERR_QUIC_PROTOCOL_ERROR - QUIC protocol negotiation issue
+                // -138: ERR_NETWORK_ACCESS_DENIED - Network blocked (can happen during redirects)
+                const suppressedErrors = [-3, -105, -106, -118, -356, -138];
+                if (suppressedErrors.includes(errorCode)) {
                     return; // Silently ignore
                 }
-                console.log(`Webview load failed: ${errorDescription} (${errorCode}) - ${validatedURL}`);
+                // Only log unexpected errors
+                console.log(`[Browser] Load failed: ${errorDescription} (${errorCode}) - ${validatedURL}`);
             });
         }
     });
